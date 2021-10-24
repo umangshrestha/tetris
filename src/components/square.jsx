@@ -1,18 +1,21 @@
 import React from 'react';
+import {COLOR_MAP} from './shapes.js';
+
 
 /* for css */
-const getStyle = (color) =>{
+const getStyle = (colorVal) => {
     return {
-        height        : "30px",
-        width         : "30px",
+        height        : "35px",
+        width         : "35px",
         borderStyle   : "solid",
         borderWidth   : "1px",
         color         : "black",
         justifyContent  : "center",
-        backgroundColor : color
+        backgroundColor : COLOR_MAP[colorVal],
     }
 }
 
-const Square = (props) => <div style={getStyle(props.color)} />
-
+const Square = (props) => {
+    return <div style={getStyle(props.color)}>{props.color}</div> 
+}
 export default Square;

@@ -1,6 +1,16 @@
 import React from 'react';
-import {COLOR_MAP} from './shapes.js';
 
+// Mapping color to shape
+export const COLOR_MAP = [
+    "black",    //None
+    "pink",     //I
+    "purple",   //T
+    "green",    //L
+    "brown",    //J
+    "red",      //Z
+    "orange",   //S
+    "blue",     //O
+]
 
 /* for css */
 const getStyle = (colorVal) => {
@@ -15,7 +25,6 @@ const getStyle = (colorVal) => {
     }
 }
 
-const Square = (props) => {
-    return <div style={getStyle(props.color)}>{props.color}</div> 
-}
+const Square = (props) =>  <div style={getStyle(props.color + 1)}>{props.color}</div> 
+
 export default Square;

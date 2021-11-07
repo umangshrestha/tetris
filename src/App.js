@@ -1,199 +1,248 @@
 import './App.css';
 import React, {Component} from 'react';
-import {SHAPE} from './components/shapes.js';
+import {COL_SIZE, ROW_SIZE} from './components/shape';
+import * as s from  './components/shape';
 import Square from "./components/square";
-
-
-
-export const ROW_SIZE = 8;
-export const COL_SIZE = 18;
+import Mutex from "await-mutex";
 
 const style = {
 	width        : "250px",
 	height       : "250px",
 	margin       : "0 auto",
 	display      : "grid",
-	gridTemplate : `repeat(${COL_SIZE}, 1fr) / repeat(${ROW_SIZE}, 1fr)`,
+  borderWidth  : "10px",
+ 	gridTemplate : `repeat(${COL_SIZE}, 1fr) / repeat(${ROW_SIZE}, 1fr)`,
 };
 
-const LEFT  = 37; /* left arrow */
+const LEFT         = 37; /* left arrow */
 const ROTATE_UP    = 90; /* z */
-const RIGHT = 39; /* right arrow */
+const RIGHT        = 39; /* right arrow */
+const DOWN         = 40; /* down arrow */
 const ROTATE_DOWN  = 88; /* x */
-const STOP  = 32; /* space */
-
-const getRandomShape = () => Math.ceil((SHAPE.length -1) * Math.random());
+const STOP         = 32; /* space */
 
 
-const InitialState =  {
-  shapePos  :  getRandomShape(),  // pointers to show which type of shape we are using
-  rotatePos :  0,                 // pointer to represent which rotation of shape we are using
-  xPos      : ROW_SIZE / 2,       // block starts coming down from middle of the board
-  yPos      :  0,                  
-  board     : [...Array(ROW_SIZE * COL_SIZE)].map( _ => 0)  ,
-  speed     : 500,
-  isPause   : false,
-}
 
-const increaseSpeed = (speed) => speed - 10 *(speed > 10)
+const increaseSpeed = ({speed}) => speed - 10 *(speed > 10)
 
 class App extends Component {
 
   constructor(props) {
     super(props);
-    this.state = InitialState;  
+    this.state        = s.InitialState();  
+    this.mutex = new Mutex();
   }
 
-  resetGame = () => this.setState(InitialState)
+  resetGame = () => this.setState(s.InitialState())
 
   componentDidMount() {
-    this.periodicInterval = setInterval(this.fallDown, this.state.speed);
+    this.periodicInterval = setInterval( () =>{
+      this.mutex.lock();
+      if (!this.state.isPause) {
+        this.updateBoard({shapePos: s.DEFAULT_VALUE});
+        this.shiftDown();
+        this.updateBoard(this.state);
+        this.setState({score: this.state.score+1})
+      }
+    }, this.state.speed);
     document.onkeydown = this.keyInput;
   }
 
   componentWillUnmount() {
     clearInterval(this.periodicInterval);
   }
+  
 
   // shift
   shiftRight = (isRight) => {
-    let curShape = this.getCurShape(this.state.rotatePos);
-    let oldArray = curShape.posArray;
-    let xPos = this.state.xPos;
+    let curShape = s.getShape(this.state);
+    let {deltaX, func, isEdge} = isRight? 
+                      { 
+                        deltaX: 1, 
+                        func: edgeVal => Math.max.apply(null, edgeVal),
+                        isEdge: this.state.xPos + curShape[0].length === ROW_SIZE,
+                      }: {
+                        deltaX: -1, 
+                        func: edgeVal => Math.min.apply(null, edgeVal),
+                        isEdge: this.state.xPos === 0,
+                      };
     // Making sure we are not going off the edge
-    if ((isRight && (xPos + curShape.rowLength === ROW_SIZE)) || (!isRight && (xPos === 0))) {
+    if (isEdge) {
       return;
     }
-    let newArray = (isRight)? oldArray.map(x => x+1): oldArray.map(x => x-1);
-    let isConflict = newArray.filter( x => oldArray.indexOf(x) === -1 && this.state.board[x] !== 0).length;
+
+    let isConflict = false;
     
+    curShape.forEach(oldArray =>  {
+      //Removing elemnts that are not part of block
+      let newArray  = oldArray.filter(val => val !== s.DEFAULT_VALUE);
+      // checking the edge most value after we shift
+      let edgeValue = func(newArray) + deltaX;
+      // checking that there is no conflict
+      if (this.state.board[edgeValue] !== s.DEFAULT_VALUE) {
+        isConflict = true;
+      }
+    })
+
     if (!isConflict) {
-      this.setState({ xPos: xPos + (isRight? 1:-1)});
+      this.setState({ xPos: this.state.xPos +deltaX});
     }
   }  
 
-  //get Current shape 
-  getCurShape = (rotatePos) => {
-    let curShape = SHAPE[this.state.shapePos][rotatePos];
-    let xPos = this.state.xPos;
-    let yPos = this.state.yPos;
-    // output for this function
-    let out = {
-      rowLength : curShape[0].length,
-      colLength : curShape.length,
-      posArray  : [] // Array representing postion of the given element
-    }
-    curShape.forEach((row, rowPos) =>  
-      row.forEach( (col, colPos) => { 
-        if (col !== 0 &&  rowPos + yPos + 1 >= curShape.length){
-          let val = (colPos + xPos) + ROW_SIZE*(rowPos+ yPos);
-          out.posArray.push(val);
-        }
-    }));
-    return out;
-  }
+  // rotate
+  rotateClockwise = (isClockwise) => {
+    // clearing the board
+    this.updateBoard({shapePos: s.DEFAULT_VALUE});
+    let newState = {...this.state}
+    newState.rotatePos = s.rotateShape(isClockwise, this.state);       
+    let newShape = s.getShape(this.state);
+    
+    newShape.forEach(newArray => {
+      // changing pos for element whieh are present in pos i.e it is not equal to default 
+      let isConflict = newArray.filter( elem  => 
+        // values that are not there in shape
+        (elem !== s.DEFAULT_VALUE) &&  
+        // values that don't conflict with other shape
+        (this.state.board[elem] !== s.DEFAULT_VALUE))
+        .length
+      if (!isConflict) {
+        return;
+      }
+    })
+
+    this.setState({ rotatePos: newState.rotatePos}); 
+    // Making sure we are not going off the edge
+    if (newState.xPos + newShape.length > ROW_SIZE) {
+      this.setState({ xPos: ROW_SIZE - newShape.length});
+    } 
+  } 
 
   getNextBlock = () => {
-    this.updateBoard(this.state.shapePos);
+    console.log("get next block")
+    let curShape = s.getShape(this.state);
+    this.updateBoard(this.state);
+   
+    for(let i=0; i< curShape.length; i++) {
+      // getting the row that the shape is touching
+      let row = [...Array(ROW_SIZE)].map( (_, pos) => pos + ROW_SIZE * (this.state.yPos + i))
+
+      // getting the value of all the bottom elements
+      let isFilled = row.map( pos => this.state.board[pos])
+        // checking the squares which are not filled
+        .filter(val => val !== s.DEFAULT_VALUE)
+        .length === ROW_SIZE;
+      if (isFilled) {
+        let board = [...this.state.board];
+        // clearing the row
+        row.forEach(pos => board[pos] = s.DEFAULT_VALUE)
+        // dropiing the above row by one column
+        for(let j=row[0]; j>0; j--) {
+          if (board[j] !== s.DEFAULT_VALUE){
+            board[j+ROW_SIZE] = board[j]; 
+            board[j] = s.DEFAULT_VALUE;
+          }
+        }
+        this.setState({board: board});
+      }
+    }
+   
+    // once the postion block touches the edge then checking if we can clear it
     this.setState({
-      yPos     : 0,
-      shapePos : getRandomShape(),
-      speed    : increaseSpeed(this.state.speed),
+      shapePos : s.getRandomShape(),
+      speed    : increaseSpeed(this.state),
+      yPos     : -3,
+      xPos     : ROW_SIZE/2,
+      rotatePos :  0,   
     });
   }
 
-  detectCollision = () => {
-    let curShape = this.getCurShape(this.state.rotatePos);
-    let oldArray = curShape.posArray;
-
-    // if bottom of the board is touched
-    if (this.state.yPos + curShape.colLength  === COL_SIZE) {
+  shiftDown = () => {
+    let curShape = s.getShape(this.state);
+    // Checking if bottom of the board is touched
+    if (this.state.yPos + curShape.length >= COL_SIZE) {
       this.getNextBlock();
-      return;      
+      return
     }
 
-    let newArray = oldArray.map(x => x + ROW_SIZE);
-    let isConflict = newArray.filter( x => oldArray.indexOf(x) === -1 && this.state.board[x] !== -1).length;
-    console.log(oldArray, newArray, isConflict, newArray.filter( x => oldArray.indexOf(x) === -1 && this.state.board[x] !== -1), isConflict);
-    if (!isConflict) {
-      this.getNextBlock();
-    }
+    // checking that there is no conflict
+    curShape[0].forEach((_, pos) => {
+      
+      let newArray = curShape.map(row => (row[pos]=== s.DEFAULT_VALUE)? -1: row[pos] + ROW_SIZE)
+      let bottomValue = Math.max.apply(Math, newArray)
+      if (
+        // handling the shape before it touches the board
+        (this.state.board[bottomValue] !== undefined) &&
+        // checking if there is no collision
+        this.state.board[bottomValue] !== s.DEFAULT_VALUE 
+      ) {
+
+        if (this.state.yPos <= 0 && this.state.yPos !== -3){
+          this.getNextBlock();
+          alert('Game Over');
+          this.resetGame();
+        } else {
+          this.getNextBlock();
+        }
+        return;
+      }
+    })
+
+
+    this.setState({yPos: this.state.yPos+1});    
   }
-        
 
-  updateBoard = (val) => {
+  updateBoard = ({shapePos}) => {
     let board = [...this.state.board];
-    let curShape = this.getCurShape(this.state.rotatePos).posArray;
-    curShape.forEach( pos => board[pos] = val+1);
+    let curShape = s.getShape(this.state);
+    curShape.forEach( row => 
+      row.forEach(pos => {
+        if (pos !== s.DEFAULT_VALUE) {
+          board[pos] = shapePos;
+        }
+    }));
     this.setState({board: board});
   }
-
-  // rotate
-  rotateClockwise = (isClockwise) => {
-    let oldArray = this.getCurShape(this.state.rotatePos).posArray;
-
-    let rotatePos = this.state.rotatePos;
-    let lenOfShape = SHAPE[this.state.shapePos].length - 1;
-    
-    let newRotatePos = (isClockwise)? 
-        (rotatePos===0)? lenOfShape:(rotatePos - 1):
-        (rotatePos===lenOfShape)? 0:(rotatePos + 1);
-
-    let newArray = this.getCurShape(newRotatePos).posArray;
-    let isConflict = newArray.filter( x => oldArray.indexOf(x) === -1 && this.state.board[x] !== 0).length;
-
-    if (!isConflict) {
-      this.setState({ rotatePos: newRotatePos});
-    }
-    
-  } 
-  
-  fallDown = () => {
-    if (!this.state.isPause) {
-      this.updateBoard(-1);
-      this.setState({yPos:  this.state.yPos+1});
-      this.updateBoard(this.state.shapePos);
-      this.detectCollision();
-    }
-  }
-
+ 
   pauseGame = () => this.setState({isPause: !this.state.isPause});
+
   keyInput = ({keyCode}) => {
+    this.mutex.lock();
     if (this.state.isPause) {
       if (keyCode === STOP) {
         this.pauseGame();
       }
       return;
     }
+
+    // clearing the board
+    this.updateBoard({shapePos: s.DEFAULT_VALUE});
+
     /* Clearing last image */
-    this.updateBoard(-1);
     switch (keyCode) {
-      case LEFT:
-        this.shiftRight(false); 
-        break;
+      case LEFT: 
       case RIGHT:
-        this.shiftRight(true);
+        this.shiftRight(keyCode===RIGHT); 
         break;
       case ROTATE_UP: 
-        this.rotateClockwise(true);
-        break;
       case ROTATE_DOWN: 
-        this.rotateClockwise(false);
-        break;
+          this.rotateClockwise(keyCode===ROTATE_UP);
+          break;
+      case DOWN:
+          // this.detectCollision();
+          this.shiftDown()
+          break;
       case STOP: 
         this.pauseGame();
         break;
-      default: 
-        break;
     }
-    this.updateBoard(this.state.shapePos);
+    this.updateBoard(this.state);
   }
   
   render() {
     const board =  this.state.board.map( (val, pos) => <Square key={pos} name={pos} color={val}/>);
     return (
       <div className="App">
-        <h1>  Tetris  {this.state.yPos}</h1>
+        <h1>  Tetris  {this.state.score}</h1>
         <div style={style}> 
           {board}
         </div>

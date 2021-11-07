@@ -2,7 +2,7 @@ import React from 'react';
 
 // Mapping color to shape
 const COLOR_MAP = [
-    "white",    //None
+    "black",    //None
     "pink",     //I
     "purple",   //T
     "green",    //L

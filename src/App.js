@@ -144,7 +144,6 @@ class App extends Component {
       }
     }
    
-    // once the postion block touches the edge then checking if we can clear it
     this.setState({
       shapePos : s.getRandomShape(),
       speed    : increaseSpeed(this.state),
@@ -240,9 +239,9 @@ class App extends Component {
     return (
       <div className="App">
         <h1>  Tetris  {this.state.score}</h1>
-        <div style={style}> 
-          {board}
-        </div>
+        <p>  Right|Left|Down|Z|X|Space </p>
+        <div style={style}> {board} </div>
+      
       </div>
     );
   }

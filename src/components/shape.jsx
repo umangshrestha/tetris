@@ -104,7 +104,7 @@ export const emptyBoard = () => [...Array(ROW_SIZE * COL_SIZE)].map( _ => DEFAUL
 
 // Returns the shapewhich represents postion in the SHAPE array
 // If we get return value 1 then it reresents I
-export const getRandomShape = () => Math.ceil((SHAPE.length - 1) * Math.random());
+export const getRandomShape = () => Math.round((SHAPE.length - 1) * Math.random());
 
 // Returns 2D array that represents the current shape with the accurate position
 export const getShape = ({shapePos, rotatePos, xPos, yPos}) => SHAPE[shapePos][rotatePos].map(

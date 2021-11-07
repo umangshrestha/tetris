@@ -52,7 +52,6 @@ class App extends Component {
     clearInterval(this.periodicInterval);
   }
   
-
   // shift
   shiftRight = (isRight) => {
     let curShape = s.getShape(this.state);
@@ -71,10 +70,11 @@ class App extends Component {
       return;
     }
 
+    //Making sure we are not overlaping other shape
     let isConflict = false;
     
     curShape.forEach(oldArray =>  {
-      //Removing elemnts that are not part of block
+      // Removing elemnts that are not part of block
       let newArray  = oldArray.filter(val => val !== s.DEFAULT_VALUE);
       // checking the edge most value after we shift
       let edgeValue = func(newArray) + deltaX;
@@ -84,6 +84,7 @@ class App extends Component {
       }
     })
 
+    // Shifting if there is not conflict
     if (!isConflict) {
       this.setState({ xPos: this.state.xPos +deltaX});
     }
@@ -91,34 +92,31 @@ class App extends Component {
 
   // rotate
   rotateClockwise = (isClockwise) => {
-    // clearing the board
-    this.updateBoard({shapePos: s.DEFAULT_VALUE});
     let newState = {...this.state}
     newState.rotatePos = s.rotateShape(isClockwise, this.state);       
-    let newShape = s.getShape(this.state);
+    let newShape = s.getShape(newState);
     
+    let isConflict = false;
     newShape.forEach(newArray => {
       // changing pos for element whieh are present in pos i.e it is not equal to default 
-      let isConflict = newArray.filter( elem  => 
-        // values that are not there in shape
+      let conflictedArray = newArray.filter( elem  => 
+        // removing values that are not there in shape
         (elem !== s.DEFAULT_VALUE) &&  
-        // values that don't conflict with other shape
+        // remove values that don't conflict with other shape
         (this.state.board[elem] !== s.DEFAULT_VALUE))
-        .length
-      if (!isConflict) {
-        return;
+      console.log(newArray, conflictedArray, isConflict, (newState.xPos + newShape.length > ROW_SIZE));
+      
+      // checking for conflict and making sure it is not going off edge
+      if ((conflictedArray.length!==0) || (newState.xPos + newShape.length >= ROW_SIZE)) {
+        isConflict = true;
       }
     })
-
-    this.setState({ rotatePos: newState.rotatePos}); 
-    // Making sure we are not going off the edge
-    if (newState.xPos + newShape.length > ROW_SIZE) {
-      this.setState({ xPos: ROW_SIZE - newShape.length});
+    if (!isConflict) {
+      this.setState({ rotatePos: newState.rotatePos}); 
     } 
   } 
 
   getNextBlock = () => {
-    console.log("get next block")
     let curShape = s.getShape(this.state);
     this.updateBoard(this.state);
    
@@ -217,7 +215,6 @@ class App extends Component {
     // clearing the board
     this.updateBoard({shapePos: s.DEFAULT_VALUE});
 
-    /* Clearing last image */
     switch (keyCode) {
       case LEFT: 
       case RIGHT:

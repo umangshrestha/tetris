@@ -97,7 +97,7 @@ const SHAPE = [
         ]
     ]
 ]
-  
+
 
 // creates empty board
 export const emptyBoard = () => [...Array(ROW_SIZE * COL_SIZE)].map( _ => DEFAULT_VALUE) 
@@ -123,7 +123,7 @@ export const InitialState = () => {
     shapePos  :  getRandomShape(),  // pointers to show which type of shape we are using
     rotatePos :  0,                 // pointer to represent which rotation of shape we are using
     xPos      : ROW_SIZE / 2,       // postion of current shape in x direction
-    yPos      :  -2,                // postion of variable in y direction
+    yPos      :  -3,                // postion of variable in y direction
     board     : emptyBoard(),
     speed     : 500,
     isPause   : false,
